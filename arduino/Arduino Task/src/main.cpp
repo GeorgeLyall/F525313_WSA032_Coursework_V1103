@@ -1,5 +1,10 @@
 #include <Arduino.h>
 
+
+int testing ;
+
+
+
 // put function declarations here:
 int myFunction(int, int);
 
