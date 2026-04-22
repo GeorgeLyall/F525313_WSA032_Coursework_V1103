@@ -26,7 +26,7 @@ Below is an **example** of the three modes (Table 1), each with a different samp
 |------|---------------|------------------|-----------------|
 | Power Down Mode | 1 sample every 30 seconds | 120 | 2,880 |
 | Idle Mode | 1 sample every 5 seconds | 720 | 17,280 |
-| Active Mode | 1 sample every 1 second | 3,600 | 86,400 |
+| Active Mode | 1 sample every 1 second | 3,600 | 86,400 |  
 
 **Interpretation**  
 If the system remains in **Active Mode**, it can generate up to **86,400 data points per day**, which may exceed available storage capacity and lead to inefficient memory usage. In contrast, if the system operates primarily in **Power Down Mode**, it records only **2,880 samples per day**, resulting in a substantial reduction in memory requirements and energy consumption.
