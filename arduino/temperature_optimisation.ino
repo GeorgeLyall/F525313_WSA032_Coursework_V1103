@@ -12,8 +12,14 @@ const int    SENSOR_PIN = A0;     // Analog input pin
 const int           N                  = 180;
 const unsigned long ACTIVE_INTERVAL_MS = 1000;
 
-// ── Data buffer
-float tempData[N]; // 720 bytes — the single shared buffer for all processing
+// ── Data buffers
+// tempData  : raw temperature samples          (180 × 4 = 720 bytes)
+// magnitude : DFT magnitude per frequency bin  (180 × 4 = 720 bytes)
+// Total: 1 440 bytes of the 2 048-byte Uno SRAM — leaves ~600 bytes for stack.
+// real[] and imag[] are NOT stored globally; each bin is computed as running
+// scalar sums, so only 8 bytes of extra stack are needed during the DFT.
+float tempData[N];
+float magnitude[N];
 
 // ── Collection state
 static int           sampleCount    = 0;
@@ -59,6 +65,48 @@ bool collect_temperature_data() {
 }
 
 
+// apply_dft()
+//   Implements the DFT (Eqs 3.3–3.5) on the contents of tempData[].
+//   For each frequency bin k, real and imaginary parts are accumulated as
+//   scalar running sums (not stored arrays) to minimise SRAM use.
+//   Magnitude[k] is stored in the global magnitude[] array (Eq. 3.5).
+//   The DC bin (k = 0) is excluded from dominant-frequency detection because
+//   it represents the mean temperature level, not a fluctuation.
+//   Returns a pointer to a static float holding the dominant frequency in Hz.
+float* apply_dft() {
+  static float dominantFreq = 0.0;
+
+  // Sampling frequency derived from the collection interval
+  float fs     = 1000.0 / ACTIVE_INTERVAL_MS; // Hz  (1.0 Hz in Active Mode)
+  float maxMag = 0.0;
+  int   domK   = 1; // start at 1 — skip DC
+
+  for (int k = 0; k < N; k++) {
+    float re = 0.0, im = 0.0;
+
+    // Accumulate real and imaginary parts (Eqs 3.3 & 3.4)
+    for (int n = 0; n < N; n++) {
+      float angle = 2.0 * M_PI * (float)k * (float)n / (float)N;
+      re +=  tempData[n] * cos(angle);
+      im -=  tempData[n] * sin(angle);
+    }
+
+    // Magnitude for this bin (Eq. 3.5)
+    magnitude[k] = sqrt(re * re + im * im);
+
+    // Track peak bin, ignoring DC (k = 0)
+    if (k > 0 && magnitude[k] > maxMag) {
+      maxMag = magnitude[k];
+      domK   = k;
+    }
+  }
+
+  // Convert bin index to Hz (Eq. 3.2): f_k = k * fs / N
+  dominantFreq = (float)domK * fs / (float)N;
+  return &dominantFreq;
+}
+
+
 // printCollectedData()
 //   Streams all collected samples over Serial in CSV format.
 //   Time is reconstructed from sample index × interval — no stored timestamps.
@@ -88,7 +136,13 @@ void loop() {
     if (collectionDone) {
       Serial.println("Collection complete.");
       printCollectedData();
+
+      // Run DFT and report dominant frequency
+      float* domFreq = apply_dft();
+      Serial.print("Dominant frequency: ");
+      Serial.print(*domFreq, 4);
+      Serial.println(" Hz");
     }
   }
-  // Future stages (DFT, power-mode logic) will be added here.
+  // send_data_to_pc() and decide_power_mode() added in next stages.
 }
