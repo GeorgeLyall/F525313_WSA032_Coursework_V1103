@@ -107,16 +107,35 @@ float* apply_dft() {
 }
 
 
-// printCollectedData()
-//   Streams all collected samples over Serial in CSV format.
-//   Time is reconstructed from sample index × interval — no stored timestamps.
-void printCollectedData() {
-  Serial.println("Time(ms),Temperature(C)");
+// send_data_to_pc()
+//   Runs the DFT on the collected buffer then streams a combined CSV to the
+//   Serial Monitor containing both time-domain and frequency-domain results.
+//   Format per row: Time(ms), Temperature(C), Frequency(Hz), Magnitude
+//   Each row i pairs sample i with DFT bin i so both datasets align on index.
+//   The dominant frequency is printed as a summary line after the table.
+void send_data_to_pc() {
+  float fs       = 1000.0 / ACTIVE_INTERVAL_MS; // sampling frequency (Hz)
+  float* domFreq = apply_dft();                  // populate magnitude[], get dominant f
+
+  Serial.println("--- DATA START ---");
+  Serial.println("Time(ms),Temperature(C),Frequency(Hz),Magnitude");
+
   for (int i = 0; i < N; i++) {
+    // Time-domain column
     Serial.print((unsigned long)i * ACTIVE_INTERVAL_MS);
     Serial.print(",");
-    Serial.println(tempData[i], 2);
+    Serial.print(tempData[i], 2);
+    Serial.print(",");
+    // Frequency-domain column — bin i maps to f = i * fs / N  (Eq. 3.2)
+    Serial.print((float)i * fs / (float)N, 4);
+    Serial.print(",");
+    Serial.println(magnitude[i], 2);
   }
+
+  Serial.println("--- DATA END ---");
+  Serial.print("Dominant frequency: ");
+  Serial.print(*domFreq, 4);
+  Serial.println(" Hz");
 }
 
 
@@ -135,14 +154,8 @@ void loop() {
 
     if (collectionDone) {
       Serial.println("Collection complete.");
-      printCollectedData();
-
-      // Run DFT and report dominant frequency
-      float* domFreq = apply_dft();
-      Serial.print("Dominant frequency: ");
-      Serial.print(*domFreq, 4);
-      Serial.println(" Hz");
+      send_data_to_pc();   // DFT + full CSV output in one call
     }
   }
-  // send_data_to_pc() and decide_power_mode() added in next stages.
+  // decide_power_mode() and adaptive control loop added in next stages.
 }
