@@ -5,12 +5,25 @@ const int    B          = 4275;   // Thermistor B-value (K)
 const int    R0         = 100000; // Reference resistance (100 kΩ)
 const int    SENSOR_PIN = A0;     // Analog input pin
 
+// ── Power modes
+// Named constants make the decision logic self-documenting and avoid
+// magic numbers scattered throughout the control loop.
+enum PowerMode { ACTIVE, IDLE, POWER_DOWN };
+
+// ── Frequency thresholds for mode selection (from brief spec)
+const float FREQ_ACTIVE_THRESHOLD = 0.5;  // Hz — above this → Active
+const float FREQ_IDLE_THRESHOLD   = 0.1;  // Hz — above this → Idle, else Power Down
+
+// ── Sampling intervals per mode (Table 1 from brief)
+const unsigned long ACTIVE_INTERVAL_MS     = 1000;  //  1 s  — 1 Hz
+const unsigned long IDLE_INTERVAL_MS       = 5000;  //  5 s  — 0.2 Hz
+const unsigned long POWERDOWN_INTERVAL_MS  = 30000; // 30 s  — 0.033 Hz
+
 // ── Collection parameters
 // 3 minutes at 1 sample/sec (Active Mode rate from Table 1).
 // Timestamps are NOT stored; time is derived as index * ACTIVE_INTERVAL_MS,
 // saving 720 bytes of SRAM vs storing a parallel unsigned long array.
-const int           N                  = 180;
-const unsigned long ACTIVE_INTERVAL_MS = 1000;
+const int N = 180;
 
 // ── Data buffers
 // tempData  : raw temperature samples          (180 × 4 = 720 bytes)
@@ -139,6 +152,40 @@ void send_data_to_pc() {
 }
 
 
+// decide_power_mode()
+//   Selects the operating mode based on the dominant frequency returned by
+//   apply_dft(). Thresholds follow the brief specification:
+//     > 0.5 Hz  → ACTIVE     (rapid fluctuation, high sampling needed)
+//     > 0.1 Hz  → IDLE       (moderate change, reduce sampling)
+//     ≤ 0.1 Hz  → POWER_DOWN (stable, minimum sampling to save energy)
+//   Takes the dominant frequency in Hz and returns a PowerMode enum value.
+PowerMode decide_power_mode(float dominantFreq) {
+  if (dominantFreq > FREQ_ACTIVE_THRESHOLD) {
+    Serial.println("Mode decision: ACTIVE (high fluctuation detected)");
+    return ACTIVE;
+  } else if (dominantFreq > FREQ_IDLE_THRESHOLD) {
+    Serial.println("Mode decision: IDLE (moderate fluctuation detected)");
+    return IDLE;
+  } else {
+    Serial.println("Mode decision: POWER_DOWN (temperature stable)");
+    return POWER_DOWN;
+  }
+}
+
+
+// modeIntervalMS()
+//   Maps a PowerMode to its corresponding sampling interval in milliseconds.
+//   Centralises the mode→interval lookup so the control loop stays readable.
+unsigned long modeIntervalMS(PowerMode mode) {
+  switch (mode) {
+    case ACTIVE:     return ACTIVE_INTERVAL_MS;
+    case IDLE:       return IDLE_INTERVAL_MS;
+    case POWER_DOWN: return POWERDOWN_INTERVAL_MS;
+    default:         return ACTIVE_INTERVAL_MS;
+  }
+}
+
+
 void setup() {
   Serial.begin(9600);
   Serial.println("=== Temperature Data Collection ===");
@@ -154,8 +201,16 @@ void loop() {
 
     if (collectionDone) {
       Serial.println("Collection complete.");
-      send_data_to_pc();   // DFT + full CSV output in one call
+      send_data_to_pc();                        // DFT + full CSV output
+
+      // Determine initial operating mode from dominant frequency
+      float domFreq = *apply_dft();
+      PowerMode mode = decide_power_mode(domFreq);
+
+      Serial.print("Initial sampling interval: ");
+      Serial.print(modeIntervalMS(mode));
+      Serial.println(" ms");
     }
   }
-  // decide_power_mode() and adaptive control loop added in next stages.
+  // Full adaptive control loop (moving average + dynamic rate) added in Stage 6.
 }
