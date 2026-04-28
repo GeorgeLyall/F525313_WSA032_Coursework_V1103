@@ -67,17 +67,17 @@ def load_csv(path):
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df = df.dropna(subset=numeric_cols).reset_index(drop=True)
 
-    # Make time continuous across cycles — each cycle resets time_ms to 0,
-    # so detect resets and add a cumulative offset based on the previous
-    # cycle's last timestamp plus one sample interval.
-    t = df['time_ms'].to_numpy(dtype=float, copy=True)
+    # Make time continuous across cycles — each cycle resets time_ms to 0.
+    # Compare original values throughout; accumulate offset into a separate array.
+    orig   = df['time_ms'].to_numpy(dtype=float, copy=True)
+    fixed  = orig.copy()
     offset = 0.0
-    for i in range(1, len(t)):
-        if t[i] < t[i - 1]:
-            interval = t[i - 1] - t[i - 2] if i > 1 else t[i - 1]
-            offset  += t[i - 1] + interval
-        t[i] += offset
-    df['time_ms'] = t
+    for i in range(1, len(orig)):
+        if orig[i] < orig[i - 1]:                          # reset detected
+            interval = orig[i - 1] - orig[i - 2] if i > 1 else orig[i - 1]
+            offset  += orig[i - 1] + interval
+        fixed[i] = orig[i] + offset
+    df['time_ms'] = fixed
     df['time_s']  = df['time_ms'] / 1000.0
     return df
 
@@ -340,10 +340,9 @@ if __name__ == '__main__':
 
     print(f"Loading data from '{DATA_PATH}'")
     df = load_csv(DATA_PATH)
-    # Compute DFT in Python if columns are missing or all-zero
-    if 'freq_hz' not in df.columns or df.get('freq_hz', pd.Series([0])).abs().max() == 0:
-        print("  DFT columns absent — computing in Python.")
-        df = add_dft_columns(df)
+    # Always recompute DFT over the full dataset — the Arduino outputs
+    # per-cycle DFT bins which repeat and are not meaningful when concatenated.
+    df = add_dft_columns(df)
 
     os.makedirs(FIG_DIR, exist_ok=True)
 
