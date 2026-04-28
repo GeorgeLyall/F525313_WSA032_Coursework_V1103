@@ -2,7 +2,7 @@
 
 // ── Sensor constants (from Grove datasheet)
 const int   B             = 4275;   // Thermistor B-value (K)
-const int   R0            = 100000; // Reference resistance (100 kΩ)
+const long  R0            = 100000; // Reference resistance (100 kΩ)
 const int   SENSOR_PIN    = A0;     // Analog input pin
 
 // ── Sampling config 
@@ -36,7 +36,7 @@ float readTemperature() {
 
 void setup() {
   Serial.begin(9600);
-  Serial.println("Time(ms),Temperature(C)");
+  Serial.println(F("Time(ms),Temperature(C)"));
 }
 
 
@@ -54,7 +54,7 @@ void loop() {
     float temp = readTemperature();
 
     Serial.print(now);
-    Serial.print(",");
+    Serial.print(F(","));
     Serial.println(temp);
   }
 }

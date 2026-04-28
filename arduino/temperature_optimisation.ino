@@ -3,9 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Sensor constants — Grove Temperature Sensor V1.2 (Steinhart-Hart B-parameter)
 // ─────────────────────────────────────────────────────────────────────────────
-const int B          = 4275;   // Thermistor B-value (K)
-const int R0         = 100000; // Reference resistance (100 kΩ)
-const int SENSOR_PIN = A0;     // Analog input pin
+const int  B          = 4275;   // Thermistor B-value (K)
+const long R0         = 100000; // Reference resistance (100 kΩ)
+const int  SENSOR_PIN = A0;     // Analog input pin
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Power mode definitions
@@ -113,9 +113,9 @@ bool collect_temperature_data() {
     sampleCount++;
 
     if (sampleCount % 10 == 0 || sampleCount == cycleSamples) {
-      Serial.print("Collecting: ");
+      Serial.print(F("Collecting: "));
       Serial.print(sampleCount);
-      Serial.print(" / ");
+      Serial.print(F(" / "));
       Serial.println(cycleSamples);
     }
   }
@@ -167,21 +167,21 @@ void send_data_to_pc(int count) {
   float fs       = 1000.0 / sampleInterval;
   float* domFreq = apply_dft(count);
 
-  Serial.println("--- DATA START ---");
-  Serial.println("Time(ms),Temperature(C),Frequency(Hz),Magnitude");
+  Serial.println(F("--- DATA START ---"));
+  Serial.println(F("Time(ms),Temperature(C),Frequency(Hz),Magnitude"));
   for (int i = 0; i < count; i++) {
     Serial.print((unsigned long)i * sampleInterval);
-    Serial.print(",");
+    Serial.print(F(","));
     Serial.print(tempData[i], 2);
-    Serial.print(",");
+    Serial.print(F(","));
     Serial.print((float)i * fs / (float)count, 4); // Eq. 3.2 per bin
-    Serial.print(",");
+    Serial.print(F(","));
     Serial.println(magnitude[i], 2);
   }
-  Serial.println("--- DATA END ---");
-  Serial.print("Dominant frequency: ");
+  Serial.println(F("--- DATA END ---"));
+  Serial.print(F("Dominant frequency: "));
   Serial.print(*domFreq, 4);
-  Serial.println(" Hz");
+  Serial.println(F(" Hz"));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -266,11 +266,13 @@ void startCycle() {
   sampleCount  = 0;
   int target   = (int)(CYCLE_DURATION_MS / sampleInterval);
   cycleSamples = (target > N) ? N : target; // never exceed buffer size
-  Serial.print("\n=== New cycle | Mode: ");
-  Serial.print(currentMode == ACTIVE ? "ACTIVE" : currentMode == IDLE ? "IDLE" : "POWER_DOWN");
-  Serial.print(" | Interval: ");
+  Serial.print(F("\n=== New cycle | Mode: "));
+  if      (currentMode == ACTIVE) Serial.print(F("ACTIVE"));
+  else if (currentMode == IDLE)   Serial.print(F("IDLE"));
+  else                            Serial.print(F("POWER_DOWN"));
+  Serial.print(F(" | Interval: "));
   Serial.print(sampleInterval);
-  Serial.print(" ms | Samples: ");
+  Serial.print(F(" ms | Samples: "));
   Serial.println(cycleSamples);
 }
 
@@ -289,8 +291,8 @@ void analyseCycle() {
   updateMovingAverage(variation);
   float predicted = predictedVariation();
 
-  Serial.print("Cycle variation: ");   Serial.print(variation, 3);   Serial.println(" °C");
-  Serial.print("Predicted trend: ");   Serial.print(predicted, 3);   Serial.println(" °C");
+  Serial.print(F("Cycle variation: "));   Serial.print(variation, 3);   Serial.println(F(" C"));
+  Serial.print(F("Predicted trend: "));   Serial.print(predicted, 3);   Serial.println(F(" C"));
 
   if (predicted > VARIATION_THRESHOLD) {
     // Temperature is actively changing — force Active regardless of frequency
@@ -312,11 +314,13 @@ void analyseCycle() {
 
   adjustSamplingRate(currentMode, domFreq);
 
-  Serial.print("Next mode: ");
-  Serial.print(currentMode == ACTIVE ? "ACTIVE" : currentMode == IDLE ? "IDLE" : "POWER_DOWN");
-  Serial.print(" | Next interval: ");
+  Serial.print(F("Next mode: "));
+  if      (currentMode == ACTIVE) Serial.print(F("ACTIVE"));
+  else if (currentMode == IDLE)   Serial.print(F("IDLE"));
+  else                            Serial.print(F("POWER_DOWN"));
+  Serial.print(F(" | Next interval: "));
   Serial.print(sampleInterval);
-  Serial.println(" ms");
+  Serial.println(F(" ms"));
 }
 
 
@@ -325,7 +329,7 @@ void analyseCycle() {
 // ─────────────────────────────────────────────────────────────────────────────
 void setup() {
   Serial.begin(9600);
-  Serial.println("=== Adaptive Temperature Monitoring System ===");
+  Serial.println(F("=== Adaptive Temperature Monitoring System ==="));
   startCycle();
 }
 
