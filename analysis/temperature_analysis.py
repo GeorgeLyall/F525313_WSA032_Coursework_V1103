@@ -13,8 +13,8 @@ Monitor) and produces five diagnostic plots saved to the analysis/ folder:
   Plot 4 — Histogram of Readings        (distribution and outlier check)
   Plot 5 — Temperature Change Rate      (identifies rapid transitions)
 
-If no recorded CSV is found the script generates synthetic data so the
-workflow can be demonstrated without the Arduino hardware.
+If no recorded CSV is found the script exits with an error directing
+the user to run collect_data.py first.
 
 A structured discussion of the findings is printed to the console after
 all plots are saved.
@@ -27,6 +27,7 @@ Expected CSV columns (from send_data_to_pc()):
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -81,42 +82,6 @@ def add_dft_columns(df):
     df['magnitude'] = np.concatenate([fft_mag,   np.zeros(n - m)])
     return df
 
-
-def generate_synthetic_data(n=180, fs=1.0, seed=42):
-    """
-    Create a realistic synthetic temperature signal for demonstration.
-    Simulates a stable indoor environment (~22 °C) with sensor noise,
-    a slow sinusoidal drift, and a single warm transient at t = 90 s.
-    Saves the data to DATA_PATH so subsequent runs use the same dataset.
-    """
-    np.random.seed(seed)
-    t      = np.arange(n) / fs
-
-    base   = 22.0
-    drift  = 0.30 * np.sin(2 * np.pi * t / 180)      # very slow baseline drift
-    noise  = np.random.normal(0, 0.08, n)             # sensor quantisation noise
-    spike  = 0.60 * np.exp(-((t - 90.0) ** 2) / 200) # warm transient at 90 s
-    temp   = base + drift + noise + spike
-
-    centred  = temp - temp.mean()
-    fft_mag  = np.abs(np.fft.rfft(centred))
-    fft_freq = np.fft.rfftfreq(n, d=1.0 / fs)
-    m        = len(fft_freq)
-
-    df = pd.DataFrame({
-        'time_ms':   (np.arange(n) * int(1000 / fs)).astype(int),
-        'temp_c':    np.round(temp, 2),
-        'freq_hz':   np.concatenate([fft_freq,  np.zeros(n - m)]),
-        'magnitude': np.concatenate([fft_mag,   np.zeros(n - m)]),
-        'time_s':    t,
-    })
-
-    os.makedirs('data', exist_ok=True)
-    df[['time_ms', 'temp_c', 'freq_hz', 'magnitude']].to_csv(
-        DATA_PATH, index=False,
-        header=['Time(ms)', 'Temperature(C)', 'Frequency(Hz)', 'Magnitude'])
-    print(f"  Synthetic data written to '{DATA_PATH}' for demonstration.")
-    return df
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -351,16 +316,17 @@ def print_discussion(df, dom_freq):
 
 if __name__ == '__main__':
     # ── Load data ──────────────────────────────────────────────────────────
-    if os.path.exists(DATA_PATH):
-        print(f"Loading data from '{DATA_PATH}'")
-        df = load_csv(DATA_PATH)
-        # Compute DFT in Python if columns are missing or all-zero
-        if 'freq_hz' not in df.columns or df.get('freq_hz', pd.Series([0])).abs().max() == 0:
-            print("  DFT columns absent — computing in Python.")
-            df = add_dft_columns(df)
-    else:
-        print(f"'{DATA_PATH}' not found — generating synthetic data for demonstration.")
-        df = generate_synthetic_data()
+    if not os.path.exists(DATA_PATH):
+        print(f"Error: '{DATA_PATH}' not found.")
+        print("Capture real data first:  python analysis/collect_data.py")
+        sys.exit(1)
+
+    print(f"Loading data from '{DATA_PATH}'")
+    df = load_csv(DATA_PATH)
+    # Compute DFT in Python if columns are missing or all-zero
+    if 'freq_hz' not in df.columns or df.get('freq_hz', pd.Series([0])).abs().max() == 0:
+        print("  DFT columns absent — computing in Python.")
+        df = add_dft_columns(df)
 
     os.makedirs(FIG_DIR, exist_ok=True)
 
