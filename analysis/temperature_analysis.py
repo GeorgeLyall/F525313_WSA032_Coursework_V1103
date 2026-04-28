@@ -61,7 +61,10 @@ def load_csv(path):
         'Frequency(Hz)':  'freq_hz',
         'Magnitude':      'magnitude',
     })
-    df['time_s'] = df['time_ms'] / 1000.0
+    # Drop any repeated header rows that may appear in multi-cycle captures
+    df = df[pd.to_numeric(df['time_ms'], errors='coerce').notna()].copy()
+    df['time_ms'] = df['time_ms'].astype(float)
+    df['time_s']  = df['time_ms'] / 1000.0
     return df
 
 

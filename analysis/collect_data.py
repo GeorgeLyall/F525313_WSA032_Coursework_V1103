@@ -175,8 +175,9 @@ def capture(port, baud, max_cycles, duration_s):
                 continue
 
             if in_block:
-                if header is None and line.startswith('Time'):
-                    header = line
+                if line.startswith('Time'):
+                    if header is None:
+                        header = line   # capture once; skip duplicates from later cycles
                 elif header and line:
                     rows_this_block.append(line)
 
