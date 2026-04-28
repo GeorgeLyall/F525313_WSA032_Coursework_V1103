@@ -70,7 +70,7 @@ def load_csv(path):
     # Make time continuous across cycles — each cycle resets time_ms to 0,
     # so detect resets and add a cumulative offset based on the previous
     # cycle's last timestamp plus one sample interval.
-    t = df['time_ms'].to_numpy()
+    t = df['time_ms'].to_numpy(dtype=float, copy=True)
     offset = 0.0
     for i in range(1, len(t)):
         if t[i] < t[i - 1]:
