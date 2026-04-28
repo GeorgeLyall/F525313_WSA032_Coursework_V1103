@@ -65,8 +65,20 @@ def load_csv(path):
     numeric_cols = ['time_ms', 'temp_c', 'freq_hz', 'magnitude']
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    df = df.dropna(subset=numeric_cols).copy()
-    df['time_s'] = df['time_ms'] / 1000.0
+    df = df.dropna(subset=numeric_cols).reset_index(drop=True)
+
+    # Make time continuous across cycles — each cycle resets time_ms to 0,
+    # so detect resets and add a cumulative offset based on the previous
+    # cycle's last timestamp plus one sample interval.
+    t = df['time_ms'].to_numpy()
+    offset = 0.0
+    for i in range(1, len(t)):
+        if t[i] < t[i - 1]:
+            interval = t[i - 1] - t[i - 2] if i > 1 else t[i - 1]
+            offset  += t[i - 1] + interval
+        t[i] += offset
+    df['time_ms'] = t
+    df['time_s']  = df['time_ms'] / 1000.0
     return df
 
 
