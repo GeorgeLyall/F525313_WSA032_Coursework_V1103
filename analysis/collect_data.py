@@ -99,13 +99,17 @@ def capture(port, baud, max_cycles, duration_s):
     """
     print(f"Opening {port} at {baud} baud …")
     try:
-        ser = serial.Serial(port, baud, timeout=1)
+        # Open with DTR held low so the Arduino does not reset on connect
+        ser = serial.Serial()
+        ser.port     = port
+        ser.baudrate = baud
+        ser.timeout  = 1
+        ser.dtr      = False
+        ser.open()
     except serial.SerialException as exc:
         print(f"Could not open port: {exc}")
         sys.exit(1)
 
-    # Give the Arduino time to reset after DTR toggles on connect
-    time.sleep(2)
     ser.reset_input_buffer()
 
     limit_str = []
