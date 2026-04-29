@@ -26,7 +26,11 @@ the unmodified baseline configuration from ecosystem_operation.py:
        Per-bot detail is shown via es.tabulate().
        Fleet-wide KPIs are extracted from the ecosystem registry and
        presented in a formatted table with percentage improvements.
-       A bar-chart figure is saved to analysis/task3_kpi_comparison.png.
+       Four charts are saved to robots/charts/:
+         chart1_fleet_kpi_comparison.png  — fleet-wide delivery vs cost KPIs
+         chart2_per_bot_pizzas.png        — pizzas delivered per bot
+         chart3_per_bot_weight.png        — weight delivered per bot
+         chart4_bot_type_summary.png      — average KPIs by bot type
 
 Usage:
     python robots/robot_optimisation.py
@@ -295,53 +299,155 @@ def print_kpi_table(base, opt):
     print()
 
 
-def plot_kpi_comparison(base, opt, out_path='analysis/task3_kpi_comparison.png'):
+CHART_DIR = 'robots/charts'
+
+
+def _save(fig, filename):
+    """Save a figure to CHART_DIR and close it."""
+    os.makedirs(CHART_DIR, exist_ok=True)
+    path = os.path.join(CHART_DIR, filename)
+    fig.savefig(path, dpi=150, bbox_inches='tight')
+    print(f"  Chart saved → {path}")
+    plt.close(fig)
+
+
+def chart1_fleet_kpi_comparison(base, opt):
     """
-    Save a bar-chart figure comparing baseline vs optimised across four
-    key delivery KPIs. Lower-is-better metrics use a separate subplot.
+    Chart 1: Two-panel fleet-wide KPI comparison.
+    Left panel — delivery performance (higher is better).
+    Right panel — costs and reliability (lower is better).
     """
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle('Task 3 — Baseline vs Optimised KPI Comparison', fontsize=13)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle('Chart 1 — Fleet KPI: Baseline vs Optimised', fontsize=13)
+    w = 0.35
 
-    # ── Higher-is-better ──────────────────────────────────────────────────
-    delivery_labels  = ['Pizzas\ndelivered', 'Weight\ndelivered (kg)']
-    baseline_vals    = [base['pizzas_delivered'], base['weight_kg']]
-    optimised_vals   = [opt['pizzas_delivered'],  opt['weight_kg']]
+    labels1 = ['Pizzas\ndelivered', 'Weight\ndelivered (kg)']
+    bv1 = [base['pizzas_delivered'], base['weight_kg']]
+    ov1 = [opt['pizzas_delivered'],  opt['weight_kg']]
+    x1  = range(len(labels1))
+    ax1.bar([i - w/2 for i in x1], bv1, w, label='Baseline',  color='steelblue')
+    ax1.bar([i + w/2 for i in x1], ov1, w, label='Optimised', color='darkorange')
+    ax1.set_xticks(list(x1))
+    ax1.set_xticklabels(labels1)
+    ax1.set_ylabel('Value')
+    ax1.set_title('Delivery performance (higher is better)')
+    ax1.legend()
+    for i, (b, o) in enumerate(zip(bv1, ov1)):
+        ax1.annotate(str(b), (i - w/2, b), ha='center', va='bottom', fontsize=8)
+        ax1.annotate(str(o), (i + w/2, o), ha='center', va='bottom', fontsize=8)
 
-    x  = range(len(delivery_labels))
-    w  = 0.35
-    ax = axes[0]
-    ax.bar([i - w/2 for i in x], baseline_vals,  w, label='Baseline',  color='steelblue')
-    ax.bar([i + w/2 for i in x], optimised_vals, w, label='Optimised', color='darkorange')
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(delivery_labels)
-    ax.set_ylabel('Value')
-    ax.set_title('Delivery performance (higher is better)')
-    ax.legend()
-    for i, (bv, ov) in enumerate(zip(baseline_vals, optimised_vals)):
-        ax.annotate(str(bv), (i - w/2, bv), ha='center', va='bottom', fontsize=8)
-        ax.annotate(str(ov), (i + w/2, ov), ha='center', va='bottom', fontsize=8)
-
-    # ── Lower-is-better ───────────────────────────────────────────────────
-    cost_labels   = ['Distance\n(units)', 'Energy\nconsumed', 'Broken\nbots', 'Damage\npoints']
-    baseline_cost = [base['distance'], base['energy'], base['broken_bots'], base['damage_points']]
-    optimised_cost= [opt['distance'],  opt['energy'],  opt['broken_bots'],  opt['damage_points']]
-
-    x2 = range(len(cost_labels))
-    ax2 = axes[1]
-    ax2.bar([i - w/2 for i in x2], baseline_cost,  w, label='Baseline',  color='steelblue')
-    ax2.bar([i + w/2 for i in x2], optimised_cost, w, label='Optimised', color='darkorange')
+    labels2 = ['Distance\n(units)', 'Energy\nconsumed', 'Broken\nbots', 'Damage\npoints']
+    bv2 = [base['distance'], base['energy'], base['broken_bots'], base['damage_points']]
+    ov2 = [opt['distance'],  opt['energy'],  opt['broken_bots'],  opt['damage_points']]
+    x2  = range(len(labels2))
+    ax2.bar([i - w/2 for i in x2], bv2, w, label='Baseline',  color='steelblue')
+    ax2.bar([i + w/2 for i in x2], ov2, w, label='Optimised', color='darkorange')
     ax2.set_xticks(list(x2))
-    ax2.set_xticklabels(cost_labels)
+    ax2.set_xticklabels(labels2)
     ax2.set_ylabel('Value')
     ax2.set_title('Costs & reliability (lower is better)')
     ax2.legend()
 
     fig.tight_layout()
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    fig.savefig(out_path, dpi=150, bbox_inches='tight')
-    print(f"  Chart saved → {out_path}")
-    plt.close(fig)
+    _save(fig, 'chart1_fleet_kpi_comparison.png')
+
+
+def chart2_per_bot_pizzas(base_es, opt_es):
+    """
+    Chart 2: Pizzas delivered per individual bot, baseline vs optimised.
+    Bots are grouped by name so the same bot position is compared directly.
+    """
+    base_regs = list(base_es.registry(kind_class='Bot').values())
+    opt_regs  = list(opt_es.registry(kind_class='Bot').values())
+
+    names  = [r['name'] for r in base_regs]
+    b_vals = [r['units_delivered'] for r in base_regs]
+    o_vals = [r['units_delivered'] for r in opt_regs]
+
+    x = range(len(names))
+    w = 0.35
+    fig, ax = plt.subplots(figsize=(11, 5))
+    ax.bar([i - w/2 for i in x], b_vals, w, label='Baseline',  color='steelblue')
+    ax.bar([i + w/2 for i in x], o_vals, w, label='Optimised', color='darkorange')
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(names)
+    ax.set_xlabel('Bot')
+    ax.set_ylabel('Pizzas delivered')
+    ax.set_title('Chart 2 — Pizzas Delivered per Bot')
+    ax.legend()
+    fig.tight_layout()
+    _save(fig, 'chart2_per_bot_pizzas.png')
+
+
+def chart3_per_bot_weight(base_es, opt_es):
+    """
+    Chart 3: Weight delivered (kg) per individual bot, baseline vs optimised.
+    """
+    base_regs = list(base_es.registry(kind_class='Bot').values())
+    opt_regs  = list(opt_es.registry(kind_class='Bot').values())
+
+    names  = [r['name'] for r in base_regs]
+    b_vals = [r['weight_delivered'] for r in base_regs]
+    o_vals = [r['weight_delivered'] for r in opt_regs]
+
+    x = range(len(names))
+    w = 0.35
+    fig, ax = plt.subplots(figsize=(11, 5))
+    ax.bar([i - w/2 for i in x], b_vals, w, label='Baseline',  color='steelblue')
+    ax.bar([i + w/2 for i in x], o_vals, w, label='Optimised', color='darkorange')
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(names)
+    ax.set_xlabel('Bot')
+    ax.set_ylabel('Weight delivered (kg)')
+    ax.set_title('Chart 3 — Weight Delivered per Bot')
+    ax.legend()
+    fig.tight_layout()
+    _save(fig, 'chart3_per_bot_weight.png')
+
+
+def chart4_bot_type_summary(base_es, opt_es):
+    """
+    Chart 4: Average pizzas delivered and average energy consumed per bot type
+    (Robot / Droid / Drone), baseline vs optimised. Two subplots side by side.
+    """
+    def averages_by_type(es):
+        regs = list(es.registry(kind_class='Bot').values())
+        types = ['Robot', 'Droid', 'Drone']
+        avg_pizzas = []
+        avg_energy = []
+        for t in types:
+            group = [r for r in regs if r['kind'] == t]
+            avg_pizzas.append(sum(r['units_delivered'] for r in group) / len(group) if group else 0)
+            avg_energy.append(sum(r['energy']          for r in group) / len(group) if group else 0)
+        return avg_pizzas, avg_energy
+
+    types = ['Robot', 'Droid', 'Drone']
+    b_pizzas, b_energy = averages_by_type(base_es)
+    o_pizzas, o_energy = averages_by_type(opt_es)
+
+    x = range(len(types))
+    w = 0.35
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle('Chart 4 — Average Performance by Bot Type', fontsize=13)
+
+    ax1.bar([i - w/2 for i in x], b_pizzas, w, label='Baseline',  color='steelblue')
+    ax1.bar([i + w/2 for i in x], o_pizzas, w, label='Optimised', color='darkorange')
+    ax1.set_xticks(list(x))
+    ax1.set_xticklabels(types)
+    ax1.set_ylabel('Avg pizzas delivered per bot')
+    ax1.set_title('Average pizzas delivered')
+    ax1.legend()
+
+    ax2.bar([i - w/2 for i in x], b_energy, w, label='Baseline',  color='steelblue')
+    ax2.bar([i + w/2 for i in x], o_energy, w, label='Optimised', color='darkorange')
+    ax2.set_xticks(list(x))
+    ax2.set_xticklabels(types)
+    ax2.set_ylabel('Avg energy consumed per bot')
+    ax2.set_title('Average energy consumed')
+    ax2.legend()
+
+    fig.tight_layout()
+    _save(fig, 'chart4_bot_type_summary.png')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -372,4 +478,9 @@ if __name__ == '__main__':
     opt_kpis  = collect_kpis(opt_es)
 
     print_kpi_table(base_kpis, opt_kpis)
-    plot_kpi_comparison(base_kpis, opt_kpis)
+
+    print(f"Generating charts → {CHART_DIR}/")
+    chart1_fleet_kpi_comparison(base_kpis, opt_kpis)
+    chart2_per_bot_pizzas(base_es, opt_es)
+    chart3_per_bot_weight(base_es, opt_es)
+    chart4_bot_type_summary(base_es, opt_es)
