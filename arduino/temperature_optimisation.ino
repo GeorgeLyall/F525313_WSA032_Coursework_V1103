@@ -165,6 +165,10 @@ float* apply_dft(int count) {
 //   Only outputs rows for the samples collected this cycle (count entries).
 // ─────────────────────────────────────────────────────────────────────────────
 void send_data_to_pc(int count) {
+  Serial.print(F("Computing DFT for "));
+  Serial.print(count);
+  Serial.println(F(" samples (please wait) ..."));
+
   float fs       = 1000.0 / sampleInterval;
   float* domFreq = apply_dft(count);
 
