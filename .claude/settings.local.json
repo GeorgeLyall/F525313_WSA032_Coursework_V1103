@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git tag *)",
+      "Bash(python analysis/temperature_analysis.py)",
+      "Bash(python3 analysis/temperature_analysis.py)",
+      "Bash(/mnt/c/Users/georg/AppData/Local/Microsoft/WindowsApps/python.exe *)",
+      "Bash(python robots/robot_optimisation.py)",
+      "Bash(python3 robots/robot_optimisation.py)",
+      "Bash(PYTHONPATH=. python3 robots/robot_optimisation.py)",
+      "Bash(python3 -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(pip3 install *)",
+      "Read(//mnt/c/Users/georg/AppData/Local/Programs/**)",
+      "Read(//mnt/c/Users/georg/AppData/Local/Microsoft/WindowsApps/**)",
+      "Bash(PYTHONPATH=. /mnt/c/Users/georg/AppData/Local/Microsoft/WindowsApps/python3.exe robots/robot_optimisation.py)",
+      "Bash(/mnt/c/Users/georg/AppData/Local/Microsoft/WindowsApps/python3.exe -c \"import sys; sys.path.insert\\(0, '.'\\); exec\\(open\\('robots/robot_optimisation.py'\\).read\\(\\)\\)\")",
+      "Bash(git rm *)"
+    ]
+  }
+}
