@@ -32,9 +32,10 @@ const unsigned long MAX_INTERVAL_MS = 2000; // 0.5 Hz lower bound
 const unsigned long CYCLE_DURATION_MS = 60000;
 
 // Variation threshold (°C summed across all consecutive differences per cycle).
-// 0.5°C chosen as clearly above sensor noise (~0.1°C) but below meaningful
-// room temperature change — tune upward if false Active triggers occur.
-const float VARIATION_THRESHOLD = 0.5;
+// Mean absolute step change threshold (°C per sample).
+// 0.05 is above ADC quantisation noise (~0.02°C/step) but below
+// genuine temperature movement; tune upward if false Active triggers occur.
+const float VARIATION_THRESHOLD = 0.05;
 
 // Consecutive Idle cycles required before dropping to Power Down (brief: 5)
 const int IDLE_CYCLES_FOR_POWERDOWN = 5;
@@ -205,11 +206,12 @@ PowerMode decide_power_mode(float dominantFreq) {
 //   This single number characterises how much temperature changed in one cycle.
 // ─────────────────────────────────────────────────────────────────────────────
 float computeVariation(int count) {
+  if (count < 2) return 0.0;
   float total = 0.0;
   for (int i = 1; i < count; i++) {
     total += fabs(tempData[i] - tempData[i - 1]);
   }
-  return total;
+  return total / (count - 1); // mean absolute step change (°C/sample)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
