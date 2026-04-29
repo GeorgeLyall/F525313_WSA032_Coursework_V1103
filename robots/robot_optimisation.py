@@ -23,14 +23,20 @@ the unmodified baseline configuration from ecosystem_operation.py:
 
   3. KPI comparison
        Baseline and optimised runs are executed sequentially.
-       Results are printed as a formatted table showing the absolute values
-       and the percentage improvement for each KPI.
+       Per-bot detail is shown via es.tabulate().
+       Fleet-wide KPIs are extracted from the ecosystem registry and
+       presented in a formatted table with percentage improvements.
+       A bar-chart figure is saved to analysis/task3_kpi_comparison.png.
 
 Usage:
     python robots/robot_optimisation.py
 """
 
+import os
 from copy import copy
+
+import matplotlib.pyplot as plt
+
 from robots.ecosystem.factory import ecofactory
 from robots.ecosystem.ecosystem import distance
 from robots.ecosystem.bots import Bot
@@ -79,8 +85,8 @@ OPP_PROXIMITY = 8.0
 
 # Opportunistic charging: only trigger if SOC is in this range (not already
 # critical — handled by scheduled charging — and not nearly full).
-OPP_SOC_MIN = 0.20  # above the per-type scheduled threshold
-OPP_SOC_MAX = 0.55  # do not top-up if already well charged
+OPP_SOC_MIN = 0.20
+OPP_SOC_MAX = 0.55
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,7 +129,6 @@ def opportunistic_charger(bot, chargers):
 
     Conditions: bot is not already charging; SOC is between OPP_SOC_MIN
     and OPP_SOC_MAX; the nearest charger is within OPP_PROXIMITY units.
-    This captures the 'passing near a charger while moderately low' scenario.
     """
     if bot.station is not None:
         return None
@@ -137,29 +142,32 @@ def opportunistic_charger(bot, chargers):
 
 
 def collect_kpis(es):
-    """Aggregate fleet-wide KPIs from a completed ecosystem run."""
-    bots = es.bots()
+    """
+    Aggregate fleet-wide KPIs from a completed ecosystem run using
+    the ecosystem registry (es.registry) rather than live bot attributes.
+    """
+    bot_regs = list(es.registry(kind_class='Bot').values())
     return {
-        'pizzas_delivered': sum(b.units_delivered for b in bots),
-        'weight_kg':        round(sum(b.weight_delivered for b in bots), 1),
-        'distance':         round(sum(b.distance for b in bots), 1),
-        'energy':           round(sum(b.energy for b in bots), 1),
-        'broken_bots':      sum(1 for b in bots if b.status == 'broken'),
-        'damage_points':    sum(b.damage for b in bots),
+        'pizzas_delivered': sum(r['units_delivered']  for r in bot_regs),
+        'weight_kg':        round(sum(r['weight_delivered'] for r in bot_regs), 1),
+        'distance':         round(sum(r['distance']         for r in bot_regs), 1),
+        'energy':           round(sum(r['energy']           for r in bot_regs), 1),
+        'broken_bots':      sum(1 for r in bot_regs if r['status'] == 'broken'),
+        'damage_points':    sum(r['damage']                 for r in bot_regs),
     }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Baseline run — replicates ecosystem_operation.py with no optimisations
+# Baseline run
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_baseline(duration='2 week'):
     """
     Run the unoptimised colony: single charger, 20% fixed threshold,
     first-come pizza allocation, 20 kg max pizza weight.
-    Returns a KPI dict.
+    Returns the completed ecosystem object.
     """
-    Bot.counter = {}  # reset so both runs produce clean bot names
+    Bot.counter = {}
 
     es = ecofactory(robots=3, droids=3, drones=3,
                     chargers=[55, 20], pizzas=9)
@@ -167,9 +175,9 @@ def run_baseline(duration='2 week'):
     es.messages_on = False
     es.duration = duration
 
-    charger    = es.chargers()[0]
-    home       = copy(HOME)
-    threshold  = 0.20
+    charger   = es.chargers()[0]
+    home      = copy(HOME)
+    threshold = 0.20
 
     while es.active:
         for bot in es.bots():
@@ -186,11 +194,11 @@ def run_baseline(duration='2 week'):
                 bot.move()
         es.update()
 
-    return collect_kpis(es)
+    return es
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Optimised run — all three optimisation areas active
+# Optimised run
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_optimised(duration='2 week'):
@@ -200,13 +208,13 @@ def run_optimised(duration='2 week'):
       - Opportunistic charging when passing within OPP_PROXIMITY of a charger
       - Nearest-pizza allocation with payload-aware filtering
       - Heavier pizzas (up to MAX_PIZZA_WEIGHT kg)
-    Returns a KPI dict.
+    Returns the completed ecosystem object.
     """
     Bot.counter = {}
 
     es = ecofactory(robots=3, droids=3, drones=3,
                     chargers=list(CHARGER_POSITIONS), pizzas=9)
-    es._max_weight = MAX_PIZZA_WEIGHT  # raise pizza weight ceiling
+    es._max_weight = MAX_PIZZA_WEIGHT
     es.display(show=0)
     es.messages_on = False
     es.duration = duration
@@ -241,15 +249,15 @@ def run_optimised(duration='2 week'):
 
         es.update()
 
-    return collect_kpis(es)
+    return es
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# KPI reporting
+# Reporting
 # ─────────────────────────────────────────────────────────────────────────────
 
 def pct_change(base, opt):
-    """Return percentage change from base to opt, or 'N/A' if base is zero."""
+    """Return percentage change string, or 'N/A' if base is zero."""
     if base == 0:
         return 'N/A'
     return f"{((opt - base) / base) * 100:+.1f}%"
@@ -265,26 +273,19 @@ def print_kpi_table(base, opt):
         'broken_bots':      'Broken bots',
         'damage_points':    'Total damage points',
     }
-
-    col_w = 24  # column width for alignment
-
+    col_w = 24
     print()
     print("=" * 70)
     print(f"{'KPI':<{col_w}} {'Baseline':>12} {'Optimised':>12} {'Change':>10}")
     print("-" * 70)
-
     for key, label in kpi_labels.items():
-        b_val = base[key]
-        o_val = opt[key]
-        # For 'broken_bots' and 'damage_points', lower is better;
-        # mark improvement in the correct direction.
+        b_val  = base[key]
+        o_val  = opt[key]
         change = pct_change(b_val, o_val)
         print(f"{label:<{col_w}} {str(b_val):>12} {str(o_val):>12} {change:>10}")
-
     print("=" * 70)
     print()
 
-    # Narrative summary using f-strings
     d_pizzas = opt['pizzas_delivered'] - base['pizzas_delivered']
     d_weight = round(opt['weight_kg'] - base['weight_kg'], 1)
     print(f"Summary: optimised colony delivered {d_pizzas:+d} more pizzas "
@@ -292,6 +293,55 @@ def print_kpi_table(base, opt):
     print(f"         Broken bots: {base['broken_bots']} → {opt['broken_bots']}; "
           f"damage points: {base['damage_points']} → {opt['damage_points']}.")
     print()
+
+
+def plot_kpi_comparison(base, opt, out_path='analysis/task3_kpi_comparison.png'):
+    """
+    Save a bar-chart figure comparing baseline vs optimised across four
+    key delivery KPIs. Lower-is-better metrics use a separate subplot.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle('Task 3 — Baseline vs Optimised KPI Comparison', fontsize=13)
+
+    # ── Higher-is-better ──────────────────────────────────────────────────
+    delivery_labels  = ['Pizzas\ndelivered', 'Weight\ndelivered (kg)']
+    baseline_vals    = [base['pizzas_delivered'], base['weight_kg']]
+    optimised_vals   = [opt['pizzas_delivered'],  opt['weight_kg']]
+
+    x  = range(len(delivery_labels))
+    w  = 0.35
+    ax = axes[0]
+    ax.bar([i - w/2 for i in x], baseline_vals,  w, label='Baseline',  color='steelblue')
+    ax.bar([i + w/2 for i in x], optimised_vals, w, label='Optimised', color='darkorange')
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(delivery_labels)
+    ax.set_ylabel('Value')
+    ax.set_title('Delivery performance (higher is better)')
+    ax.legend()
+    for i, (bv, ov) in enumerate(zip(baseline_vals, optimised_vals)):
+        ax.annotate(str(bv), (i - w/2, bv), ha='center', va='bottom', fontsize=8)
+        ax.annotate(str(ov), (i + w/2, ov), ha='center', va='bottom', fontsize=8)
+
+    # ── Lower-is-better ───────────────────────────────────────────────────
+    cost_labels   = ['Distance\n(units)', 'Energy\nconsumed', 'Broken\nbots', 'Damage\npoints']
+    baseline_cost = [base['distance'], base['energy'], base['broken_bots'], base['damage_points']]
+    optimised_cost= [opt['distance'],  opt['energy'],  opt['broken_bots'],  opt['damage_points']]
+
+    x2 = range(len(cost_labels))
+    ax2 = axes[1]
+    ax2.bar([i - w/2 for i in x2], baseline_cost,  w, label='Baseline',  color='steelblue')
+    ax2.bar([i + w/2 for i in x2], optimised_cost, w, label='Optimised', color='darkorange')
+    ax2.set_xticks(list(x2))
+    ax2.set_xticklabels(cost_labels)
+    ax2.set_ylabel('Value')
+    ax2.set_title('Costs & reliability (lower is better)')
+    ax2.legend()
+
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150, bbox_inches='tight')
+    print(f"  Chart saved → {out_path}")
+    plt.close(fig)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -303,11 +353,23 @@ if __name__ == '__main__':
     DURATION = '2 week'
 
     print(f"Running BASELINE configuration for {DURATION}...")
-    base_kpis = run_baseline(DURATION)
-    print("Baseline complete.")
+    base_es = run_baseline(DURATION)
+    print("Baseline complete.\n")
+    print("Per-bot breakdown (baseline):")
+    base_es.tabulate('name', 'kind', 'status', 'units_delivered',
+                     'weight_delivered', 'distance', 'energy', 'damage',
+                     kind_class='Bot')
 
     print(f"\nRunning OPTIMISED configuration for {DURATION}...")
-    opt_kpis = run_optimised(DURATION)
-    print("Optimised run complete.")
+    opt_es = run_optimised(DURATION)
+    print("Optimised run complete.\n")
+    print("Per-bot breakdown (optimised):")
+    opt_es.tabulate('name', 'kind', 'status', 'units_delivered',
+                    'weight_delivered', 'distance', 'energy', 'damage',
+                    kind_class='Bot')
+
+    base_kpis = collect_kpis(base_es)
+    opt_kpis  = collect_kpis(opt_es)
 
     print_kpi_table(base_kpis, opt_kpis)
+    plot_kpi_comparison(base_kpis, opt_kpis)
