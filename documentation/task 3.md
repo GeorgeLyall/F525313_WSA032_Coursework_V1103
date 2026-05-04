@@ -89,10 +89,10 @@ The following learning materials are directly relevant to this task
 ## **Deliverables**
 What you must deliver for assessment of this task:
 * A python file `robot_optimisation.py`
-* This file should be located in the `python` folder
-* Note that other python files or documentation related to the task 3 may be placed in the `python` folder. These will not be be assessed but may beneficially referenced in task 1 to demonstrate your development process.
+* This file should be locattation related to the task 3 may be placed in the `python` folder. These will not be be assessed but may beneficially referenced in task 1 to demonstrate your development process.
 ---
-
+ed in the `python` folder
+* Note that other python files or documen
 ## **Assessment Criteria**
 
 Task 3 is worth a total of **30** marks. This is assessed according to the following four criteria:
