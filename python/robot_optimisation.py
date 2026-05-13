@@ -455,8 +455,8 @@ def chart4_bot_type_summary(base_es, opt_es):
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    # Set DURATION to '52 week' for a full-year comparison before submission.
-    DURATION = '2 week'
+    
+    DURATION = '52 week'
 
     print(f"Running BASELINE configuration for {DURATION}...")
     base_es = run_baseline(DURATION)

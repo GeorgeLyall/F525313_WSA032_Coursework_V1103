@@ -138,8 +138,7 @@ python robots/robot_optimisation.py
 
 The script runs the **baseline** configuration first, then the **optimised** configuration, and prints a side-by-side KPI comparison table showing pizzas delivered, weight delivered, distance, energy, broken bots, and damage points.
 
-> **Note:** The default run duration is set to `2 week` for quick testing.  
-> Change `DURATION = '2 week'` to `DURATION = '52 week'` in `robot_optimisation.py` for a full-year comparison before submission.
+
 
 **Example output:**
 
