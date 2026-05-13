@@ -1,7 +1,8 @@
 # F525313 — 25WSA032 Coursework
 
+**Name:** George Lyall
 **Student ID:** F525313  
-**Module:** 25WSA032 — Introduction to Software Engineering  
+**Module:** 25WSA032 — Programming and Software Engineering 
 **Semester:** 2, 2025–2026  
 
 ---
@@ -33,12 +34,13 @@ F525313_25WSA032_Coursework/
 │   ├── task 1.md – task 4.md
 │   ├── coursework code quality.md
 │   └── Learning Outcomes.md
-├── robots/
-│   ├── ecosystem/
+├── Python/
+|   ├── robots/
+│   |   ├── ecosystem/
 │   │   ├── ecosystem.py       # Ecosystem engine (do not modify)
 │   │   ├── bots.py            # Bot base and child classes
-│   │   └── factory.py        # Factory helper
-│   ├── ecosystem_operation.py # Demo/baseline script
+│   |   ├── ecosystem_operation.py # Demo/baseline script
+|   |   └── factory.py        # Factory helper
 │   └── robot_optimisation.py  # Task 3 deliverable
 ├── data/                      # Task 4: recorded CSV data from Arduino
 ├── analysis/
