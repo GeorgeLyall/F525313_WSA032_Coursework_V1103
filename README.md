@@ -133,7 +133,7 @@ Time(ms),Temperature(C),Frequency(Hz),Magnitude
 From the repo root:
 
 ```bash
-python robots/robot_optimisation.py
+python python/robot_optimisation.py
 ```
 
 The script runs the **baseline** configuration first, then the **optimised** configuration, and prints a side-by-side KPI comparison table showing pizzas delivered, weight delivered, distance, energy, broken bots, and damage points.
