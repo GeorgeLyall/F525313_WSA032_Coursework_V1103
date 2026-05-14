@@ -32,8 +32,8 @@ the unmodified baseline configuration from ecosystem_operation.py:
          chart3_per_bot_weight.png        — weight delivered per bot
          chart4_bot_type_summary.png      — average KPIs by bot type
 
-Usage:
-    python robots/robot_optimisation.py
+Usage (from the python/ directory):
+    python robot_optimisation.py
 """
 
 import os

@@ -15,7 +15,7 @@ This repository contains all coursework deliverables for 25WSA032. The project c
 |------|-------------|-------------|-------|
 | 1 | Git source control and SDLC | `.git` repo history | 20 |
 | 2 | Arduino adaptive temperature monitoring | `arduino/temperature_optimisation.ino` | 30 |
-| 3 | Python robot ecosystem optimisation | `robots/robot_optimisation.py` | 30 |
+| 3 | Python robot ecosystem optimisation | `python/robot_optimisation.py` | 30 |
 | 4 | Data analytics and visualisation | Plots + Python script | 20 |
 
 ---
@@ -121,7 +121,7 @@ Time(ms),Temperature(C),Frequency(Hz),Magnitude
 
 ### How the optimisations work
 
-`robots/robot_optimisation.py` extends the unoptimised demo with:
+`python/robot_optimisation.py` extends the unoptimised demo with:
 
 - **Nearest-charger routing** — 3 chargers distributed across the arena; each bot always routes to the closest one
 - **Evidence-based charge thresholds** — tuned per bot type from the energy model (Robot 15%, Droid 12%, Drone 13%) vs the fixed 20% baseline
@@ -132,10 +132,11 @@ Time(ms),Temperature(C),Frequency(Hz),Magnitude
 
 ### Running the simulation
 
-From the repo root:
+From the `python/` directory:
 
 ```bash
-python python/robot_optimisation.py
+cd python
+python robot_optimisation.py
 ```
 
 The script runs the **baseline** configuration first, then the **optimised** configuration, and prints a side-by-side KPI comparison table showing pizzas delivered, weight delivered, distance, energy, broken bots, and damage points.
