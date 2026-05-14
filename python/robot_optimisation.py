@@ -175,7 +175,7 @@ def run_baseline(duration='2 week'):
 
     es = ecofactory(robots=3, droids=3, drones=3,
                     chargers=[55, 20], pizzas=9)
-    es.display(show=0)
+    es.display(show=1)
     es.messages_on = False
     es.duration = duration
 
